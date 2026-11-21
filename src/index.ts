@@ -28,44 +28,6 @@ server.registerTool(
     },
 );
 
-// server.registerTool(
-//     "get-order-status",
-//     {
-//         title: "Get order status",
-//         description:
-//             "Look up a customer order by its order ID and return its status, items, and delivery date. Use this whenever the user asks about a specific order.",
-//         inputSchema: z.object({
-//             orderId: z
-//                 .string()
-//                 .regex(/^ORD-\d{4}$/)
-//                 .describe("The order ID, such as ORD-1042."),
-//         }),
-//     },
-//     async ({ orderId }) => {
-//         const order = getOrderStatus(orderId);
-//
-//         if (!order) {
-//             return {
-//                 content: [
-//                     {
-//                         type: "text",
-//                         text: `No order found with ID ${orderId}.`,
-//                     },
-//                 ],
-//             };
-//         }
-//
-//         return {
-//             content: [
-//                 {
-//                     type: "text",
-//                     text: formatOrder(order),
-//                 },
-//             ],
-//         };
-//     },
-// );
-
 const transport = new StdioServerTransport();
 
 await server.connect(transport);
