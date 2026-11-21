@@ -86,4 +86,4 @@ server.registerTool(
 const transport = new StdioServerTransport();
 
 await server.connect(transport);
-console.info("Basic Info MCP server is running over stdio.");
+console.error("Basic Info MCP server is running over stdio.");
