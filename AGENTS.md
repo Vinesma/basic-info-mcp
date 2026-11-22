@@ -114,3 +114,17 @@ docker compose up -d --build
 - Tests import sibling modules with `.js` extensions (ESM resolution maps them
   to `.ts` via `tsx`). Add one `test/<name>.test.ts` per tool and keep the
   tool list in `test/tools.test.ts` in sync when registering a new tool.
+- The Web tools are (`fetch-json`, `fetch-page`, `download-file`, `rss-feed`, `web-search`). The relevant gotchas while building them:
+  - jsdom parses HTML by default, so void elements like RSS
+    `<link>text</link>` lose their text content. For XML feeds, use
+    `new DOMParser().parseFromString(xml, "application/xml")`.
+  - `DOMParser` is a constructor, not a static method — call
+    `new DOMParser().parseFromString(...)`. jsdom's `window.DOMParser` type also
+    omits `parseFromString`, so cast the constructor.
+  - `Node` is a browser global, not in Node's runtime. Use numeric `nodeType`
+    constants (element `1`, text `3`).
+  - `||` and `??` cannot be mixed without parentheses (TS5076).
+  - `string.length` is characters, not bytes; use
+    `new TextEncoder().encode(s).length` for a byte count.
+  - `fetch-json`'s handler must `await` the fetch call — a sync handler that
+    returns `textResult(fetchJson(...))` fails typecheck.
