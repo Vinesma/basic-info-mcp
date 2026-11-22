@@ -30,7 +30,7 @@ const VOLUME: Dimension = {
     l: 1,
     ml: 0.001,
     m3: 1000,
-    cm3: 1, // cc == ml in base (l)
+    cm3: 0.001, // cc == ml in base (l)
     gal_us: 3.785411784,
     qt_us: 0.946352946,
     pt_us: 0.473176473,
@@ -50,8 +50,8 @@ const AREA: Dimension = {
 const SPEED: Dimension = {
     "m/s": 1,
     "km/h": 0.277777778,
-    "mph": 0.44704,
-    "kt": 0.5144444444,
+    mph: 0.44704,
+    kt: 0.5144444444,
 };
 
 export const DIMENSIONS = {
