@@ -9,7 +9,8 @@
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "link-service": "ln -sfv \"$(pwd)/systemd/basic-info-mcp.service\" \"$HOME/.config/systemd/user\""
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
