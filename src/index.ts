@@ -11,7 +11,7 @@ const port = Number(process.env.PORT) || 8080;
 
 const app = createMcpHonoApp({
     host: hostname,
-    allowedHosts: ["host.docker.internal"],
+    allowedHosts: ["host.docker.internal", "mcp-server"],
 });
 app.get("/health", c => c.json({ status: "ok" }));
 app.all("/mcp", c => handler.fetch(c.req.raw));

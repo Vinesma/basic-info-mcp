@@ -1,0 +1,29 @@
+services:
+  basic-info-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: basic-info-mcp:latest
+    container_name: basic-info-mcp
+    ports:
+      - "${PORT}:8080"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8080
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r => r.json()).then(j => process.exit(j.jsonrpc ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      mcp-net:
+        aliases:
+          - mcp-server
+
+networks:
+  mcp-net:
+    external: true
+    name: mcp-net
