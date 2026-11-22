@@ -9,6 +9,7 @@ test("registers the expected tools", () => {
         "get-date-time",
         "calculate",
         "convert-units",
+        "web-search",
     ]);
 });
 
