@@ -93,7 +93,24 @@ docker compose up -d --build
 - When the MCP SDK updates, check `node_modules/@modelcontextprotocol/server`
   types; `registerTool` expects `(args) => { content: [...] }`.
 
+## Keep AGENTS.md useful
+
+- This file is written for future agents, not just the current one. When you
+  learn something non-obvious while working here — a gotcha, a convention that
+  works, a dependency quirk, an env-var you discovered — add it so the next
+  agent doesn't have to rediscover it. Prefer concrete, actionable notes over
+  prose.
+- If you are unsure whether something belongs here, err toward adding it; the
+  file is a living log of hard-won context.
+
 ## Gotchas
 
 - `calculate()` validates with a regex then uses `new Function`. It is safe
   against arbitrary code but not a full parser — document that trade-off.
+- `registerTool`'s handler type accepts a sync or async return, so an `async`
+  handler that `await`s `fetch` typechecks fine. If you define a local
+  `handler: (input) => TextResult` shape, remember a `Promise<TextResult>` is
+  not assignable to it.
+- Tests import sibling modules with `.js` extensions (ESM resolution maps them
+  to `.ts` via `tsx`). Add one `test/<name>.test.ts` per tool and keep the
+  tool list in `test/tools.test.ts` in sync when registering a new tool.
