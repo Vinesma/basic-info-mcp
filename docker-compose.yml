@@ -7,10 +7,11 @@ services:
     container_name: basic-info-mcp
     user: "1000:1000"
     ports:
-      - "9932:8080"
+      - "8080:9933"
     environment:
       NODE_ENV: production
       DOCKER: yes
+      HOST: 0.0.0.0
       HOME: /home/node
     volumes:
       - ${HOME}:/home/node
