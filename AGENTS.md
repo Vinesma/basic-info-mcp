@@ -2,7 +2,7 @@
 
 Notes for agents working on **basic-info-mcp** — a small MCP (Model Context
 Protocol) server in TypeScript that exposes a few tools to AI agents:
-getting the date/time, evaluating arithmetic expressions, and converting units.
+getting the date/time, evaluating arithmetic expressions, converting units, among others.
 
 ## Layout
 
@@ -34,11 +34,11 @@ test/                 node:test suites (one per tool + registry)
 npm install
 npm run typecheck   # tsc --noEmit
 npm test            # node:test via tsx
-npm run dev         # run the server (tsx src/index.ts)
+npm start           # run the server
 ```
 
 Copy `.env.example` to `.env` and set `HOST`/`PORT` before running. `.env` is
-gitignored; keep secrets out of it.
+gitignored.
 
 ## How to add a new tool
 

@@ -1,10 +1,17 @@
-### What is this?
+## What is this?
 
-A simple MCP server that exposes simple tools for agents.
+A basic MCP server that exposes simple tools for agents.
+
+### How to use
+
+#### Bare metal
+
+```sh
+npm install
+npm start
+```
 
 #### Docker
-
-How to use:
 
 ```sh
 docker compose up -d --build
