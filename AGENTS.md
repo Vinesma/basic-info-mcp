@@ -11,10 +11,10 @@ src/
   index.ts            HTTP entrypoint (Hono + @hono/node-server), /health + /mcp
   tools/
     index.ts          Tool registry + buildServer() (the single source of tools)
-    datetime.ts       getDateTime()
-    calculate.ts      calculate() — arithmetic expression evaluator
-    convert.ts        convertUnits() — unit conversion tables
+    *.ts              Tools get added here as a new .ts file.
 test/                 node:test suites (one per tool + registry)
+systemd/              Systemd service file for running the docker compose
+.github               Github actions
 ```
 
 ## Concepts
@@ -39,6 +39,12 @@ npm start           # run the server
 
 Copy `.env.example` to `.env` and set `HOST`/`PORT` before running. `.env` is
 gitignored.
+
+## Setup / run (Docker)
+
+```bash
+docker compose up -d --build
+```
 
 ## How to add a new tool
 
@@ -89,8 +95,5 @@ gitignored.
 
 ## Gotchas
 
-- `convert.ts` maps each unit to a base multiplier; a wrong multiplier produces
-  silently wrong conversions (e.g. the `cm3` fix). Test conversions that are
-  easy to get wrong.
 - `calculate()` validates with a regex then uses `new Function`. It is safe
   against arbitrary code but not a full parser — document that trade-off.
