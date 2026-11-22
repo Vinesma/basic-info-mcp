@@ -10,6 +10,10 @@ test("registers the expected tools", () => {
         "calculate",
         "convert-units",
         "web-search",
+        "fetch-json",
+        "fetch-page",
+        "download-file",
+        "rss-feed",
     ]);
 });
 

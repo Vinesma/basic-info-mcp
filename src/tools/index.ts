@@ -8,6 +8,10 @@ import { getDateTime } from "./datetime.js";
 import { calculate } from "./calculate.js";
 import { convertUnits } from "./convert.js";
 import { webSearch } from "./web-search.js";
+import { fetchJson } from "./fetch-json.js";
+import { fetchPage } from "./fetch-page.js";
+import { downloadFile } from "./download-file.js";
+import { rssFeed } from "./rss-feed.js";
 
 type TextResult = {
     content: Array<{ type: "text"; text: string }>;
@@ -125,6 +129,94 @@ export const tools: ToolDef[] = [
                     max_results,
                 }),
             );
+        },
+    },
+    {
+        name: "fetch-json",
+        title: "Fetch JSON",
+        description:
+            "Fetch a URL that returns JSON (an API or JSON endpoint) and return the parsed body. Use when you need to read structured data from a JSON endpoint. The response is validated as JSON and capped by max_bytes.",
+        inputSchema: z.object({
+            url: z.string().describe("URL of the JSON endpoint to fetch."),
+            method: z
+                .string()
+                .optional()
+                .describe("HTTP method, default 'GET'."),
+            max_bytes: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .default(100_000)
+                .describe("Maximum response body size in bytes before erroring."),
+        }),
+        handler: async ({ url, method, max_bytes }) => {
+            return textResult(await fetchJson(url, { method, max_bytes }));
+        },
+    },
+    {
+        name: "fetch-page",
+        title: "Fetch Page",
+        description:
+            "Fetch an HTML page and return its clean, readable text (markup, scripts, and navigation stripped). Use when you need the readable content of a web page rather than the raw HTML. Content is capped by max_bytes.",
+        inputSchema: z.object({
+            url: z.string().describe("URL of the page to fetch."),
+            max_bytes: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .default(50_000)
+                .describe("Maximum readable text size in bytes before truncating."),
+            accept: z
+                .string()
+                .optional()
+                .describe("Value for the Accept header, default 'text/html'."),
+        }),
+        handler: async ({ url, max_bytes, accept }) => {
+            return textResult(await fetchPage(url, { max_bytes, accept }));
+        },
+    },
+    {
+        name: "download-file",
+        title: "Download File",
+        description:
+            "Download a file from a URL and return it as a base64 data URI (data:<mime>;base64,...). Use when you need the raw bytes of a file (image, PDF, CSV, etc.) inline, e.g. for a sandboxed agent that cannot read a file the server wrote to disk. Capped by max_bytes.",
+        inputSchema: z.object({
+            url: z.string().describe("URL of the file to download."),
+            max_bytes: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .default(5_000_000)
+                .describe("Maximum file size in bytes before erroring."),
+            mime_type: z
+                .string()
+                .optional()
+                .describe("Optional MIME type hint; defaults to the response Content-Type."),
+        }),
+        handler: async ({ url, max_bytes, mime_type }) => {
+            return textResult(await downloadFile(url, { max_bytes, mime_type }));
+        },
+    },
+    {
+        name: "rss-feed",
+        title: "RSS Feed",
+        description:
+            "Fetch an RSS or Atom feed and return a clean list of items (title, link, date, description). Use when you want to read a blog, news, or release feed. Handles both RSS <item> and Atom <entry> entries. Capped by max_items.",
+        inputSchema: z.object({
+            url: z.string().describe("URL of the RSS or Atom feed."),
+            max_items: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .default(20)
+                .describe("Maximum number of items to return."),
+        }),
+        handler: async ({ url, max_items }) => {
+            return textResult(await rssFeed(url, { max_items }));
         },
     },
 ];
