@@ -3,14 +3,14 @@
 # ---- Base: install dependencies ----
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .env ./
 RUN npm ci
 
 # ---- Build: typecheck ----
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .env ./
 COPY src ./src
 COPY test ./test
 COPY tsconfig.json ./
@@ -23,7 +23,7 @@ ENV DOCKER=yes
 WORKDIR /app
 # Install runtime deps and copy typecheck output (if any emitted files exist).
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .env ./
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/test ./test
 EXPOSE 8080
