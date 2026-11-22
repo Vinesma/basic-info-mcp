@@ -7,6 +7,7 @@ import {
 import { getDateTime } from "./datetime.js";
 import { calculate } from "./calculate.js";
 import { convertUnits } from "./convert.js";
+import { webSearch } from "./web-search.js";
 
 type TextResult = {
     content: Array<{ type: "text"; text: string }>;
@@ -28,7 +29,7 @@ interface ToolDef<InputArgs = any> {
     title?: string;
     description: string;
     inputSchema?: StandardSchemaWithJSON;
-    handler: (input: InputArgs) => TextResult;
+    handler: (input: InputArgs) => TextResult | Promise<TextResult>;
 }
 
 export const tools: ToolDef[] = [
@@ -72,6 +73,58 @@ export const tools: ToolDef[] = [
         }),
         handler: ({ value, from, to, dimension }) => {
             return textResult(convertUnits(value, from, to, dimension));
+        },
+    },
+    {
+        name: "web-search",
+        title: "Web Search",
+        description:
+            "Search the web via a self-hosted SearXNG instance (JSON API) to get up-to-date information. Use when you need current facts, recent events, or information not already known. The instance URL comes from the SEARX_URL environment variable.",
+        inputSchema: z.object({
+            query: z
+                .string()
+                .describe("Search query passed to the search engines."),
+            categories: z
+                .string()
+                .describe(
+                    "Optional comma-separated search categories (e.g. 'general').",
+                ),
+            language: z
+                .string()
+                .describe("Optional language code, e.g. 'en', 'fr'."),
+            time_range: z
+                .enum(["day", "month", "year"])
+                .describe("Optional recency filter for time-sensitive engines."),
+            max_results: z
+                .number()
+                .int()
+                .positive()
+                .max(100)
+                .default(10)
+                .describe("Maximum number of results to return."),
+        }),
+        handler: async ({
+            query,
+            categories,
+            language,
+            time_range,
+            max_results,
+        }) => {
+            const url = process.env.SEARX_URL;
+            if (!url) {
+                return textResult(
+                    "SEARX_URL environment variable is not set; cannot run web search.",
+                );
+            }
+            return textResult(
+                await webSearch(url, {
+                    query,
+                    categories,
+                    language,
+                    time_range,
+                    max_results,
+                }),
+            );
         },
     },
 ];
