@@ -19,6 +19,7 @@ RUN npm run typecheck
 # ---- Runtime: production image ----
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
+ENV DOCKER=yes
 WORKDIR /app
 # Install runtime deps and copy typecheck output (if any emitted files exist).
 COPY --from=deps /app/node_modules ./node_modules

@@ -5,12 +5,17 @@ services:
       dockerfile: Dockerfile
     image: basic-info-mcp:latest
     container_name: basic-info-mcp
+    user: "1000:1000"
     ports:
       - "${PORT}:8080"
     environment:
       NODE_ENV: production
+      DOCKER: yes
       HOST: 0.0.0.0
       PORT: 8080
+      HOME: /home/node
+    volumes:
+      - ${HOME}:/home/node
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r => r.json()).then(j => process.exit(j.jsonrpc ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
