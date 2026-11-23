@@ -26,8 +26,15 @@ services:
       mcp-net:
         aliases:
           - mcp-server
+      mcp-internal:
+        aliases:
+          - mcp-server
 
 networks:
   mcp-net:
     external: true
     name: mcp-net
+  mcp-internal:
+    name: mcp-internal
+    driver: bridge
+    internal: true
