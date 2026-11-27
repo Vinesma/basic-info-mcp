@@ -4,6 +4,8 @@
 
 import { JSDOM } from "jsdom";
 
+import { resolveAndValidate } from "./ssrf.js";
+
 // A DOMParser that parses XML so void elements (e.g. RSS <link>text</link>)
 // keep their text content. JSDOM's default constructor parses as HTML.
 interface DomParser {
@@ -52,6 +54,7 @@ function parseFeed(xml: string): { title: string; items: FeedItem[] } {
 
 export async function rssFeed(url: string, params: FeedParams = {}): Promise<string> {
     const maxItems = params.max_items ?? 20;
+    await resolveAndValidate(url);
 
     let response: Response;
     try {

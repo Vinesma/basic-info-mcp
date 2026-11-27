@@ -5,6 +5,8 @@
 
 import { JSDOM } from "jsdom";
 
+import { resolveAndValidate } from "./ssrf.js";
+
 export interface FetchPageParams {
     max_bytes?: number;
     accept?: string;
@@ -54,6 +56,7 @@ function normalizeWhitespace(text: string): string {
 export async function fetchPage(url: string, params: FetchPageParams = {}): Promise<string> {
     const maxBytes = params.max_bytes ?? 50_000;
     const accept = params.accept ?? "text/html,application/xhtml+xml,*/*";
+    await resolveAndValidate(url);
 
     let response: Response;
     try {

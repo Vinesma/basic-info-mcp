@@ -1,18 +1,19 @@
 // Fetch a URL and return its JSON body as a string.
 // Dependency-light: uses the global fetch API (Node >= 20).
 
+import { resolveAndValidate } from "./ssrf.js";
+
 export interface FetchJsonParams {
-    method?: string;
     max_bytes?: number;
 }
 
 export async function fetchJson(url: string, params: FetchJsonParams = {}): Promise<string> {
     const maxBytes = params.max_bytes ?? 100_000;
-    const method = params.method ?? "GET";
+    await resolveAndValidate(url);
 
     let response: Response;
     try {
-        response = await fetch(url, { method });
+        response = await fetch(url);
     } catch (err) {
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }

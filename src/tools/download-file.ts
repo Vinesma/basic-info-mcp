@@ -3,6 +3,8 @@
 // a sandbox can read the result even when the MCP server's output dir is
 // unreachable from the agent side.
 
+import { resolveAndValidate } from "./ssrf.js";
+
 export interface DownloadFileParams {
     max_bytes?: number;
     mime_type?: string;
@@ -13,6 +15,7 @@ export async function downloadFile(
     params: DownloadFileParams = {},
 ): Promise<string> {
     const maxBytes = params.max_bytes ?? 5_000_000;
+    await resolveAndValidate(url);
 
     let response: Response;
     try {
