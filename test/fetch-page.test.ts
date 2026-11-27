@@ -1,8 +1,12 @@
-import { test } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { fetchPage } from "../src/tools/fetch-page.js";
 import { tools } from "../src/tools/index.js";
+import { mockDns, restoreDns } from "./dns-mock.js";
+
+before(mockDns);
+after(restoreDns);
 
 function htmlPage(html: string, contentType = "text/html"): Response {
     return {

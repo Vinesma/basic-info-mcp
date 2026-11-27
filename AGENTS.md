@@ -128,3 +128,19 @@ docker compose up -d --build
     `new TextEncoder().encode(s).length` for a byte count.
   - `fetch-json`'s handler must `await` the fetch call — a sync handler that
     returns `textResult(fetchJson(...))` fails typecheck.
+- SSRF guard (`src/tools/ssrf.ts`): `resolveAndValidate()` runs before every
+  URL fetch. It strips brackets from IPv6 hostnames (`URL.hostname` returns
+  `[::1]`) and calls `resolver.lookup()` (a small mutable holder around
+  `dns.lookup`) so DNS is mocked in tests.
+  - `net.IPv4Is*` helpers (`IPv4IsPrivate`, etc.) do NOT exist on the `net`
+    module in this Node version — only `net.isIPv4`/`net.isIPv6`. Classify the
+    ranges explicitly in `isPublicIp()`.
+  - `dns.lookup` is writable but non-configurable on the ESM namespace, so
+    `mock.method` (which uses `defineProperty`) throws "Cannot redefine
+    property". Reassign the exported `resolver.lookup` in tests instead.
+  - IPv6 `/7` mask is `0xfe80` (compare `0xfc00`), `/10` is `0xffc0` (compare
+    `0xfe80`), `/8` is `0xff00` — don't eyeball the bit masks.
+  - Tests that stub `globalThis.fetch` must also stub DNS (see
+    `test/dns-mock.ts` + `before`/`after` hooks) or they fail on real DNS.
+  - `web-search`'s handler must `await` the fetch call — a sync handler that
+    returns `textResult(webSearch(...))` fails typecheck.

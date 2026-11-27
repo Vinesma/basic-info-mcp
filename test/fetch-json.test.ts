@@ -1,8 +1,12 @@
-import { test } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { fetchJson } from "../src/tools/fetch-json.js";
 import { tools } from "../src/tools/index.js";
+import { mockDns, restoreDns } from "./dns-mock.js";
+
+before(mockDns);
+after(restoreDns);
 
 function jsonBody(body: unknown): Response {
     return {
@@ -24,14 +28,14 @@ test("returns the JSON body as a string", async () => {
     }
 });
 
-test("uses the provided method", async () => {
+test("defaults to GET", async () => {
     const original = globalThis.fetch;
     globalThis.fetch = (async (_url: string, init?: RequestInit) => {
-        assert.equal(init?.method, "POST");
+        assert.equal(init?.method, undefined);
         return jsonBody({ ok: true }) as Response;
     }) as typeof fetch;
     try {
-        await fetchJson("https://api.example.com/create", { method: "POST" });
+        await fetchJson("https://api.example.com/data");
     } finally {
         globalThis.fetch = original;
     }

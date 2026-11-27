@@ -83,7 +83,7 @@ export const tools: ToolDef[] = [
         name: "web-search",
         title: "Web Search",
         description:
-            "Search the web via a self-hosted SearXNG instance (JSON API) to get up-to-date information. Use when you need current facts, recent events, or information not already known. The instance URL comes from the SEARX_URL environment variable.",
+            "Search the web via a self-hosted SearXNG instance (JSON API) to get up-to-date information. Use when you need current facts, recent events, or information not already known. The instance URL comes from the SEARX_URL environment variable. The query is logged for visibility.",
         inputSchema: z.object({
             query: z
                 .string()
@@ -135,13 +135,9 @@ export const tools: ToolDef[] = [
         name: "fetch-json",
         title: "Fetch JSON",
         description:
-            "Fetch a URL that returns JSON (an API or JSON endpoint) and return the parsed body. Use when you need to read structured data from a JSON endpoint. The response is validated as JSON and capped by max_bytes.",
+            "Fetch a URL that returns JSON (an API or JSON endpoint) and return the parsed body. Use when you need to read structured data from a JSON endpoint. The response is validated as JSON and capped by max_bytes. Uses GET only and resolves the host before fetching (SSRF guard).",
         inputSchema: z.object({
             url: z.string().describe("URL of the JSON endpoint to fetch."),
-            method: z
-                .string()
-                .optional()
-                .describe("HTTP method, default 'GET'."),
             max_bytes: z
                 .number()
                 .int()
@@ -151,7 +147,7 @@ export const tools: ToolDef[] = [
                 .describe("Maximum response body size in bytes before erroring."),
         }),
         handler: async ({ url, method, max_bytes }) => {
-            return textResult(await fetchJson(url, { method, max_bytes }));
+            return textResult(await fetchJson(url, { max_bytes }));
         },
     },
     {
@@ -228,6 +224,43 @@ export function buildServer(): McpServer {
     });
 
     for (const tool of tools) {
+        const handler = tool.handler;
+        const loggedHandler = async (input: any) => {
+            const start = Date.now();
+            const url =
+                input && typeof input === "object" && "url" in input
+                    ? String((input as { url: unknown }).url)
+                    : undefined;
+            try {
+                const result = await handler(input);
+                const byteLength = new TextEncoder()
+                    .encode(result.content[0]?.text ?? "")
+                    .length;
+                console.log(
+                    JSON.stringify({
+                        ts: new Date().toISOString(),
+                        tool: tool.name,
+                        url,
+                        status: "ok",
+                        bytes: byteLength,
+                        duration_ms: Date.now() - start,
+                    }),
+                );
+                return result;
+            } catch (err) {
+                console.error(
+                    JSON.stringify({
+                        ts: new Date().toISOString(),
+                        tool: tool.name,
+                        url,
+                        status: "error",
+                        error: (err as Error).message,
+                        duration_ms: Date.now() - start,
+                    }),
+                );
+                throw err;
+            }
+        };
         server.registerTool(
             tool.name,
             {
@@ -235,7 +268,7 @@ export function buildServer(): McpServer {
                 description: tool.description,
                 inputSchema: tool.inputSchema,
             },
-            tool.handler,
+            loggedHandler,
         );
     }
 
