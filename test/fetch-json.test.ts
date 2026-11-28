@@ -3,85 +3,86 @@ import assert from "node:assert/strict";
 
 import { fetchJson } from "../src/tools/fetch-json.js";
 import { tools } from "../src/tools/index.js";
+import undici from "undici";
 import { mockDns, restoreDns } from "./dns-mock.js";
 
 before(mockDns);
 after(restoreDns);
 
-function jsonBody(body: unknown): Response {
+function jsonBody(body: unknown): undici.Response {
     return {
         ok: true,
         status: 200,
         statusText: "OK",
         text: async () => JSON.stringify(body),
-    } as Response;
+    } as undici.Response;
 }
 
 test("returns the JSON body as a string", async () => {
-    globalThis.fetch = async () =>
-        jsonBody({ hello: "world", n: 42 }) as Response;
+    undici.fetch = async () =>
+        jsonBody({ hello: "world", n: 42 }) as undici.Response;
     try {
         const out = await fetchJson("https://api.example.com/data");
         assert.deepEqual(JSON.parse(out), { hello: "world", n: 42 });
     } finally {
-        globalThis.fetch = async () => jsonBody({});
+        undici.fetch = async () => jsonBody({});
     }
 });
 
 test("defaults to GET", async () => {
-    const original = globalThis.fetch;
-    globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    const original = undici.fetch;
+    undici.fetch = async (_url, init?) => {
         assert.equal(init?.method, undefined);
-        return jsonBody({ ok: true }) as Response;
-    }) as typeof fetch;
+        return jsonBody({ ok: true }) as undici.Response;
+    };
     try {
         await fetchJson("https://api.example.com/data");
     } finally {
-        globalThis.fetch = original;
+        undici.fetch = original;
     }
 });
 
 test("throws on non-2xx response", async () => {
-    globalThis.fetch = async () =>
+    undici.fetch = async () =>
         ({
             ok: false,
             status: 404,
             statusText: "Not Found",
             text: async () => "",
-        }) as Response;
+        }) as undici.Response;
     try {
         await assert.rejects(() => fetchJson("https://api.example.com/missing"), /HTTP 404/);
     } finally {
-        globalThis.fetch = async () => jsonBody({});
+        undici.fetch = async () => jsonBody({});
     }
 });
 
 test("throws when body exceeds max_bytes", async () => {
-    globalThis.fetch = async () =>
+    undici.fetch = async () =>
         ({
             ok: true,
             status: 200,
             statusText: "OK",
             text: async () => JSON.stringify({ data: "x".repeat(5000) }),
-        }) as Response;
+        }) as undici.Response;
     try {
         await assert.rejects(
             () => fetchJson("https://api.example.com/big", { max_bytes: 100 }),
             /exceeds 100 bytes/,
         );
     } finally {
-        globalThis.fetch = async () => jsonBody({});
+        undici.fetch = async () => jsonBody({});
     }
 });
 
 test("throws on invalid JSON", async () => {
-    const original = globalThis.fetch;
-    globalThis.fetch = async () =>
-        ({ ok: true, status: 200, statusText: "OK", text: async () => "not json" }) as Response;
+    const original = undici.fetch;
+    undici.fetch = async () =>
+        ({ ok: true, status: 200, statusText: "OK", text: async () => "not json" }) as undici.Response;
     try {
         await assert.rejects(() => fetchJson("https://api.example.com/bad"), /invalid JSON/);
     } finally {
-        globalThis.fetch = original;
+        undici.fetch = original;
     }
 });
 

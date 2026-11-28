@@ -5,10 +5,10 @@
 
 import { JSDOM } from "jsdom";
 
-import { resolveAndValidate } from "./ssrf.js";
-import type { Dispatcher } from "undici";
+import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
+import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
 
-type FetchInit = RequestInit & { dispatcher?: Dispatcher };
+type FetchInit = UndiciInit;
 
 export interface FetchPageParams {
     max_bytes?: number;
@@ -65,19 +65,22 @@ export async function fetchPage(url: string, params: FetchPageParams = {}): Prom
         headers: { Accept: accept },
         ...(dispatcher ? { dispatcher } : {}),
     };
-    let response: Response;
+    let response: Awaited<ReturnType<typeof undici.fetch>>;
     try {
-        response = await fetch(url, init);
+        response = await undici.fetch(url, init);
     } catch (err) {
+        await closeDispatcher(dispatcher);
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }
 
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().includes("html")) {
+        await closeDispatcher(dispatcher);
         throw new Error(`page is ${contentType || "unknown type"}, not HTML: ${url}`);
     }
 
     const html = await response.text();
+    await closeDispatcher(dispatcher);
 
     const dom = new JSDOM(html, { url, runScripts: "outside-only" });
     const { document } = dom.window;

@@ -3,10 +3,10 @@
 // a sandbox can read the result even when the MCP server's output dir is
 // unreachable from the agent side.
 
-import { resolveAndValidate } from "./ssrf.js";
-import type { Dispatcher } from "undici";
+import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
+import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
 
-type FetchInit = RequestInit & { dispatcher?: Dispatcher };
+type FetchInit = UndiciInit;
 
 export interface DownloadFileParams {
     max_bytes?: number;
@@ -21,20 +21,23 @@ export async function downloadFile(
     const { dispatcher } = await resolveAndValidate(url);
 
     const init: FetchInit = dispatcher ? { dispatcher } : {};
-    let response: Response;
+    let response: Awaited<ReturnType<typeof undici.fetch>>;
     try {
-        response = await fetch(url, init);
+        response = await undici.fetch(url, init);
     } catch (err) {
+        await closeDispatcher(dispatcher);
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }
 
     if (!response.ok) {
+        await closeDispatcher(dispatcher);
         throw new Error(
             `HTTP ${response.status} ${response.statusText} for ${url}`,
         );
     }
 
     const buffer = await response.arrayBuffer();
+    await closeDispatcher(dispatcher);
     const byteLength = buffer.byteLength;
     if (byteLength > maxBytes) {
         throw new Error(

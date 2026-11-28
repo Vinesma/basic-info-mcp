@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 
 import { downloadFile } from "../src/tools/download-file.js";
 import { tools } from "../src/tools/index.js";
+import undici from "undici";
 import { mockDns, restoreDns } from "./dns-mock.js";
 
 before(mockDns);
@@ -12,7 +13,7 @@ after(restoreDns);
 function bytesResponse(
     body: Uint8Array,
     contentType = "application/octet-stream",
-): Response {
+): undici.Response {
     return {
         ok: true,
         status: 200,
@@ -22,72 +23,72 @@ function bytesResponse(
             body.byteOffset,
             body.byteOffset + body.byteLength,
         ),
-    } as Response;
+    } as undici.Response;
 }
 
 test("returns a base64 data URI", async () => {
-    globalThis.fetch = async () =>
-        bytesResponse(new TextEncoder().encode("hello")) as Response;
+    undici.fetch = async () =>
+        bytesResponse(new TextEncoder().encode("hello")) as undici.Response;
     try {
         const out = await downloadFile("https://example.com/file.txt");
         assert.match(out, /^data:application\/octet-stream;base64,/);
         const b64 = out.replace(/^data:.*;base64,/, "");
         assert.equal(Buffer.from(b64, "base64").toString("utf8"), "hello");
     } finally {
-        globalThis.fetch = async () => bytesResponse(new Uint8Array());
+        undici.fetch = async () => bytesResponse(new Uint8Array());
     }
 });
 
 test("uses the provided mime_type hint", async () => {
-    globalThis.fetch = async () =>
-        bytesResponse(new TextEncoder().encode("x"), "text/plain") as Response;
+    undici.fetch = async () =>
+        bytesResponse(new TextEncoder().encode("x"), "text/plain") as undici.Response;
     try {
         const out = await downloadFile("https://example.com/a", {
             mime_type: "image/png",
         });
         assert.match(out, /^data:image\/png;base64,/);
     } finally {
-        globalThis.fetch = async () => bytesResponse(new Uint8Array());
+        undici.fetch = async () => bytesResponse(new Uint8Array());
     }
 });
 
 test("defaults mime_type from Content-Type when not given", async () => {
-    globalThis.fetch = async () =>
-        bytesResponse(new TextEncoder().encode("y"), "image/png; charset=binary") as Response;
+    undici.fetch = async () =>
+        bytesResponse(new TextEncoder().encode("y"), "image/png; charset=binary") as undici.Response;
     try {
         const out = await downloadFile("https://example.com/b");
         assert.match(out, /^data:image\/png;base64,/);
     } finally {
-        globalThis.fetch = async () => bytesResponse(new Uint8Array());
+        undici.fetch = async () => bytesResponse(new Uint8Array());
     }
 });
 
 test("throws on non-2xx response", async () => {
-    globalThis.fetch = async () =>
+    undici.fetch = async () =>
         ({
             ok: false,
             status: 403,
             statusText: "Forbidden",
             headers: { get: () => null },
             arrayBuffer: async () => new ArrayBuffer(0),
-        }) as unknown as Response;
+        }) as unknown as undici.Response;
     try {
         await assert.rejects(() => downloadFile("https://example.com/sec"), /HTTP 403/);
     } finally {
-        globalThis.fetch = async () => bytesResponse(new Uint8Array());
+        undici.fetch = async () => bytesResponse(new Uint8Array());
     }
 });
 
 test("throws when body exceeds max_bytes", async () => {
-    globalThis.fetch = async () =>
-        bytesResponse(new Uint8Array(10_000)) as Response;
+    undici.fetch = async () =>
+        bytesResponse(new Uint8Array(10_000)) as undici.Response;
     try {
         await assert.rejects(
             () => downloadFile("https://example.com/big", { max_bytes: 100 }),
             /exceeds 100 bytes/,
         );
     } finally {
-        globalThis.fetch = async () => bytesResponse(new Uint8Array());
+        undici.fetch = async () => bytesResponse(new Uint8Array());
     }
 });
 

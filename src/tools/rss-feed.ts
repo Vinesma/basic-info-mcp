@@ -4,7 +4,8 @@
 
 import { JSDOM } from "jsdom";
 
-import { resolveAndValidate } from "./ssrf.js";
+import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
+import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
 
 // A DOMParser that parses XML so void elements (e.g. RSS <link>text</link>)
 // keep their text content. JSDOM's default constructor parses as HTML.
@@ -54,21 +55,25 @@ function parseFeed(xml: string): { title: string; items: FeedItem[] } {
 
 export async function rssFeed(url: string, params: FeedParams = {}): Promise<string> {
     const maxItems = params.max_items ?? 20;
-    await resolveAndValidate(url);
+    const { dispatcher } = await resolveAndValidate(url);
 
-    let response: Response;
+    const init: UndiciInit = dispatcher ? { dispatcher } : {};
+    let response: Awaited<ReturnType<typeof undici.fetch>>;
     try {
-        response = await fetch(url);
+        response = await undici.fetch(url, init);
     } catch (err) {
+        await closeDispatcher(dispatcher);
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }
     if (!response.ok) {
+        await closeDispatcher(dispatcher);
         throw new Error(
             `HTTP ${response.status} ${response.statusText} for ${url}`,
         );
     }
 
     const xml = await response.text();
+    await closeDispatcher(dispatcher);
 
     let parsed;
     try {

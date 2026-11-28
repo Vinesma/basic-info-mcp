@@ -12,6 +12,7 @@
 
 import { lookup } from "node:dns/promises";
 import * as net from "node:net";
+import * as tls from "node:tls";
 import { Agent, buildConnector, type Dispatcher } from "undici";
 
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
@@ -72,7 +73,23 @@ function expandIPv6(addr: string): string[] {
 // lookup and fetch()'s re-resolution. The URL's Host header and SNI are left
 // untouched, so TLS validation still matches the name even though the TCP
 // connection goes to a pinned IP.
-function createPinnedDispatcher(host: string, addresses: string[]): Agent {
+// Release a pinned dispatcher's sockets after each request. A per-request
+// Agent is created for every hostname fetch (see resolveAndValidate()); if it
+// is never closed its keep-alive sockets linger, which leaks memory/file
+// descriptors in a long-lived server. Called in a finally block by each URL
+// tool once the response body has been consumed.
+export async function closeDispatcher(
+    dispatcher: Dispatcher | undefined,
+): Promise<void> {
+    if (dispatcher) {
+        await dispatcher.close().catch(() => {});
+    }
+}
+
+export function createPinnedDispatcher(
+    host: string,
+    addresses: string[],
+): Agent {
     const byHost = new Map<string, string[]>();
     byHost.set(host.toLowerCase(), addresses);
     byHost.set(host, addresses);
@@ -82,22 +99,66 @@ function createPinnedDispatcher(host: string, addresses: string[]): Agent {
             options: buildConnector.Options,
             callback: buildConnector.Callback,
         ) => {
+            // A custom connector fully replaces undici's own connector, which is
+            // where tls.connect() happens for https. So we must do TLS here and
+            // wait on 'secureConnect' (or 'connect' for plain http).
+            const isHttps = options.protocol === "https:";
+            // Keep the original hostname for SNI and cert validation even though
+            // the TCP connection dials the pinned IP.
+            const servername = options.servername ?? options.hostname;
+            const defaultPort = isHttps ? 443 : 80;
+
+            // Map both the bare host and its lowercased form to the validated
+            // addresses; fall back to the addresses passed in.
             const ips =
-                byHost.get((options.host ?? "").toLowerCase()) ?? addresses;
-            const ip = ips[0];
-            const family = net.isIPv4(ip) ? 4 : 6;
-            const port: number = Number(options.port) || 443;
-            const opts: net.TcpNetConnectOpts = {
-                host: ip,
-                port,
-                family,
+                byHost.get(options.hostname.toLowerCase()) ?? addresses;
+
+            let index = 0;
+            let settled = false;
+            let socket: net.Socket | tls.TLSSocket | undefined;
+
+            const finish = (
+                err: Error | null,
+                sock?: net.Socket | tls.TLSSocket,
+            ) => {
+                if (settled) return;
+                settled = true;
+                if (err) callback(err, null);
+                else callback(null, sock as net.Socket | tls.TLSSocket);
             };
-            const listener = (err: Error | null, sock: net.Socket) =>
-                callback(null, sock);
-            return net.connect(
-                opts as net.NetConnectOpts,
-                listener as () => void,
-            );
+
+            const dial = () => {
+                if (index >= ips.length) {
+                    finish(
+                        new Error(
+                            `all ${ips.length} pinned addresses failed for ` +
+                                `${options.hostname}:${options.port}`,
+                        ),
+                    );
+                    return;
+                }
+                const ip = ips[index++];
+                const family: 4 | 6 = net.isIPv4(ip) ? 4 : 6;
+                const port = Number(options.port) || defaultPort;
+
+                socket = isHttps
+                    ? tls.connect({ host: ip, port, family, servername } as tls.ConnectionOptions)
+                    : net.connect({ host: ip, port, family } as net.NetConnectOpts);
+
+                const onConnected = () => finish(null, socket);
+                const onError = (err: Error) => {
+                    socket?.destroy();
+                    dial(); // try the next validated address
+                };
+                socket.once(
+                    isHttps ? "secureConnect" : "connect",
+                    onConnected,
+                );
+                socket.once("error", onError);
+            };
+
+            dial();
+            return socket;
         },
     });
 }
