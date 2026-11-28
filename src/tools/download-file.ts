@@ -4,7 +4,7 @@
 // unreachable from the agent side.
 
 import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
-import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
+import undici, { type RequestInit as UndiciInit } from "undici";
 
 type FetchInit = UndiciInit;
 
