@@ -34,8 +34,26 @@ systemd/              Systemd service file for running the docker compose
 npm install
 npm run typecheck   # tsc --noEmit
 npm test            # node:test via tsx
+npm run lint        # eslint .
+npm run format      # prettier --write . (normalize formatting)
+npm run format:check # prettier --check .
+npm run verify       # typecheck + lint + format:check + test (all-in-one)
 npm start           # run the server
 ```
+
+## Linting & formatting
+
+- **ESLint** (flat config in `eslint.config.js`) uses `@babel/eslint-parser`
+  with `@babel/preset-typescript` for `**/*.ts`. `typescript-eslint` is **not**
+  used because TS 7 has no stable JS compiler API (see Gotchas). Type checking
+  is owned entirely by `tsc --noEmit`.
+- **Prettier** (`.prettierrc`, `printWidth: 100`) handles formatting. `.prettierignore`
+  lists `node_modules` and `package-lock.json`.
+- CI (`.github/workflows/node.js.yml`) runs `typecheck`, `lint`, and
+  `format:check` before `test`. Keep all three green.
+- Convention: run `npm run format` after editing, and fix `npm run lint`
+  findings before considering a task as completed. `no-unused-vars` reports type-position
+  references as warnings under the babel parser; that is expected.
 
 Copy `.env.example` to `.env` and set `HOST`/`PORT` before running. `.env` is
 gitignored.
@@ -70,6 +88,7 @@ docker compose up -d --build
      (e.g. `get-date-time`).
    - Keep `description` agent-facing: describe purpose, when to use it, and any
      constraints (units, allowed characters, etc.).
+
 3. Add a test in `test/<name>.test.ts`.
 4. Run `npm run typecheck` and `npm test`.
 
@@ -105,6 +124,9 @@ docker compose up -d --build
 
 ## Gotchas
 
+- `no-unused-vars` reports type-position references as warnings under the babel
+  parser (e.g. `UndiciInit`, `buildConnector` are used but flagged). Expected,
+  not a real unused var; lint still exits 0.
 - `calculate()` validates with a regex then uses `new Function`. It is safe
   against arbitrary code but not a full parser — document that trade-off.
 - `registerTool`'s handler type accepts a sync or async return, so an `async`

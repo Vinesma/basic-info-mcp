@@ -1,4 +1,4 @@
 export function getDateTime() {
-    const date = new Date();
-    return date.toString();
+  const date = new Date();
+  return date.toString();
 }
