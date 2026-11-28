@@ -30,3 +30,20 @@ test("buildServer returns an McpServer", () => {
     assert.equal(typeof server, "object");
     assert.equal(typeof server.registerTool, "function");
 });
+
+test("web-search exposes logFields that logs the query", () => {
+    const tool = tools.find((t) => t.name === "web-search");
+    assert.ok(tool, "web-search should be registered");
+    assert.equal(typeof tool.logFields, "function");
+    assert.deepEqual(tool.logFields?.({ query: "hello" }), {
+        query: "hello",
+    });
+});
+
+test("url tools omit logFields (log via url only)", () => {
+    for (const name of ["fetch-json", "fetch-page", "download-file", "rss-feed"]) {
+        const tool = tools.find((t) => t.name === name);
+        assert.ok(tool, `${name} should be registered`);
+        assert.equal(tool.logFields, undefined);
+    }
+});

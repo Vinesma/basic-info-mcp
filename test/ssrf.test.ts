@@ -44,6 +44,15 @@ test("isPublicIp: private / loopback / link-local / unspecified IPv4", () => {
     assert.equal(isPublicIp("0.0.0.0"), false);
 });
 
+test("isPublicIp: CGNAT 100.64.0.0/10", () => {
+    assert.equal(isPublicIp("100.64.1.1"), false);
+    assert.equal(isPublicIp("100.64.0.0"), false);
+    assert.equal(isPublicIp("100.127.255.255"), false);
+    // Adjacent ranges are still public.
+    assert.equal(isPublicIp("100.63.255.255"), true);
+    assert.equal(isPublicIp("100.128.0.0"), true);
+});
+
 test("isPublicIp: IPv6 ranges", () => {
     assert.equal(isPublicIp("2606:4700:4700::1111"), true);
     assert.equal(isPublicIp("::1"), false);
@@ -117,5 +126,22 @@ test("resolveAndValidate: rejects when any resolved address is private", async (
             () => resolveAndValidate("http://dual.example/"),
             /resolved to a private\/local IP 127.0.0.1/,
         );
+    });
+});
+
+test("resolveAndValidate: rejects a hostname resolving to CGNAT", async () => {
+    await withDnsLookup([addr("100.64.1.1")], async () => {
+        await assert.rejects(
+            () => resolveAndValidate("http://cgnat.example/"),
+            /resolved to a private\/local IP 100.64.1.1/,
+        );
+    });
+});
+
+test("resolveAndValidate: returns a pinned dispatcher for a hostname", async () => {
+    await withDnsLookup([addr("93.184.216.137")], async () => {
+        const res = await resolveAndValidate("https://example.com/page");
+        assert.equal(res.addresses[0], "93.184.216.137");
+        assert.equal(typeof res.dispatcher?.close, "function");
     });
 });

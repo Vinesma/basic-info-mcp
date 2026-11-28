@@ -3,20 +3,21 @@ import assert from "node:assert/strict";
 
 import { fetchPage } from "../src/tools/fetch-page.js";
 import { tools } from "../src/tools/index.js";
+import undici from "undici";
 import { mockDns, restoreDns } from "./dns-mock.js";
 
 before(mockDns);
 after(restoreDns);
 
-function htmlPage(html: string, contentType = "text/html"): Response {
+function htmlPage(html: string, contentType = "text/html"): undici.Response {
     return {
         headers: { get: (_name: string) => contentType },
         text: async () => html,
-    } as Response;
+    } as undici.Response;
 }
 
 test("extracts readable text and strips markup", async () => {
-    globalThis.fetch = async () =>
+    undici.fetch = async () =>
         htmlPage(`
         <html><head><title>Title</title><style>.x{color:red}</style></head>
         <body>
@@ -24,7 +25,7 @@ test("extracts readable text and strips markup", async () => {
           <script>alert('hi')</script>
           <main><h1>Hello</h1><p>World paragraph.</p></main>
         </body></html>
-    `) as Response;
+    `) as undici.Response;
     try {
         const out = await fetchPage("https://example.com/page");
         assert.match(out, /Hello/);
@@ -35,39 +36,39 @@ test("extracts readable text and strips markup", async () => {
         assert.doesNotMatch(out, /<h1>/);
         assert.doesNotMatch(out, /Nav/);
     } finally {
-        globalThis.fetch = async () => htmlPage("<body></body>");
+        undici.fetch = async () => htmlPage("<body></body>");
     }
 });
 
 test("returns a note when there is no text", async () => {
-    globalThis.fetch = async () =>
-        htmlPage("<body><div></div></body>") as Response;
+    undici.fetch = async () =>
+        htmlPage("<body><div></div></body>") as undici.Response;
     try {
         const out = await fetchPage("https://example.com/empty");
         assert.equal(out, "page returned no text content");
     } finally {
-        globalThis.fetch = async () => htmlPage("<body></body>");
+        undici.fetch = async () => htmlPage("<body></body>");
     }
 });
 
 test("throws on non-HTML content type", async () => {
-    globalThis.fetch = async () =>
-        htmlPage('{"a":1}', "application/json") as Response;
+    undici.fetch = async () =>
+        htmlPage('{"a":1}', "application/json") as undici.Response;
     try {
         await assert.rejects(() => fetchPage("https://example.com/data"), /not HTML/);
     } finally {
-        globalThis.fetch = async () => htmlPage("<body></body>");
+        undici.fetch = async () => htmlPage("<body></body>");
     }
 });
 
 test("truncates text over max_bytes", async () => {
-    globalThis.fetch = async () =>
-        htmlPage("<body><p>" + "word ".repeat(5000) + "</p></body>") as Response;
+    undici.fetch = async () =>
+        htmlPage("<body><p>" + "word ".repeat(5000) + "</p></body>") as undici.Response;
     try {
         const out = await fetchPage("https://example.com/big", { max_bytes: 200 });
         assert.match(out, /\[truncated: exceeds 200 bytes/);
     } finally {
-        globalThis.fetch = async () => htmlPage("<body></body>");
+        undici.fetch = async () => htmlPage("<body></body>");
     }
 });
 
