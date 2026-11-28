@@ -117,14 +117,29 @@ export function createPinnedDispatcher(
             let settled = false;
             let socket: net.Socket | tls.TLSSocket | undefined;
 
+            // Once the socket has connected successfully, `finish` removes this
+            // listener. Without that, an error raised mid-request (after the
+            // connect event) would call `socket.destroy()` on a socket undici
+            // still owns and dial the next pinned address, whose new socket is
+            // then orphaned (a file-descriptor leak). On the failure path the
+            // listener stays attached so we keep trying the next address.
+            const onError = (err: Error) => {
+                socket?.destroy();
+                dial(); // try the next validated address
+            };
+
             const finish = (
                 err: Error | null,
                 sock?: net.Socket | tls.TLSSocket,
             ) => {
                 if (settled) return;
                 settled = true;
-                if (err) callback(err, null);
-                else callback(null, sock as net.Socket | tls.TLSSocket);
+                if (err) {
+                    callback(err, null);
+                } else {
+                    socket?.removeListener("error", onError);
+                    callback(null, sock as net.Socket | tls.TLSSocket);
+                }
             };
 
             const dial = () => {
@@ -146,10 +161,6 @@ export function createPinnedDispatcher(
                     : net.connect({ host: ip, port, family } as net.NetConnectOpts);
 
                 const onConnected = () => finish(null, socket);
-                const onError = (err: Error) => {
-                    socket?.destroy();
-                    dial(); // try the next validated address
-                };
                 socket.once(
                     isHttps ? "secureConnect" : "connect",
                     onConnected,

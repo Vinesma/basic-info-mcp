@@ -93,15 +93,20 @@ export const tools: ToolDef[] = [
                 .describe("Search query passed to the search engines."),
             categories: z
                 .string()
+                .optional()
                 .describe(
                     "Optional comma-separated search categories (e.g. 'general').",
                 ),
             language: z
                 .string()
+                .optional()
                 .describe("Optional language code, e.g. 'en', 'fr'."),
             time_range: z
                 .enum(["day", "month", "year"])
-                .describe("Optional recency filter for time-sensitive engines."),
+                .optional()
+                .describe(
+                    "Optional recency filter for time-sensitive engines.",
+                ),
             max_results: z
                 .number()
                 .int()

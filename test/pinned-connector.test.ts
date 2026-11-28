@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import * as net from "node:net";
 
 import {
     createPinnedDispatcher,
@@ -65,6 +66,62 @@ test("tries the next pinned address when the first fails to connect", async () =
     } finally {
         await closeDispatcher(dispatcher);
         await server.close();
+    }
+});
+
+test("removes the error listener after a successful connect (no socket leak)", async () => {
+    // Primary server on 127.0.0.1 serves the request, then writes one unread
+    // byte and destroys the socket, forcing a client-side RST/error AFTER the
+    // request has settled (see the post-settle RST gotcha).
+    let primarySocket: net.Socket;
+    const server = http.createServer((req, res) => {
+        primarySocket = res.socket as net.Socket;
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end("pinned-ok");
+        setImmediate(() => {
+            primarySocket.write("x"); // unread byte on the wire
+            primarySocket.destroy(); // -> ECONNRESET on the client
+        });
+    });
+    await new Promise<void>((res2) =>
+        server.listen(0, "127.0.0.1", () => res2()),
+    );
+    const port = (server.address() as net.AddressInfo).port;
+
+    // A second listener on 127.0.0.2:<same port> counts how many times the
+    // connector dials the second pinned address after the first settled.
+    let secondaryConnections = 0;
+    const secondary = http.createServer();
+    secondary.on("connection", () => {
+        secondaryConnections++;
+    });
+    await new Promise<void>((res3) =>
+        secondary.listen(port, "127.0.0.2", () => res3()),
+    );
+
+    const dispatcher = createPinnedDispatcher("example.com", [
+        "127.0.0.1",
+        "127.0.0.2",
+    ]);
+    try {
+        const { statusCode } = await dispatcher.request({
+            method: "GET",
+            origin: `http://127.0.0.1:${port}`,
+            path: "/",
+        });
+        assert.equal(statusCode, 200);
+
+        // Give the post-settle RST and any (buggy) extra dial a chance to land.
+        await new Promise((r) => setTimeout(r, 150));
+        assert.equal(
+            secondaryConnections,
+            0,
+            "error listener should be removed after connect (no extra dial)",
+        );
+    } finally {
+        await closeDispatcher(dispatcher);
+        await new Promise<void>((r) => server.close(() => r()));
+        await new Promise<void>((r) => secondary.close(() => r()));
     }
 });
 
