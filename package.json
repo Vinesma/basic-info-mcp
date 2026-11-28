@@ -10,10 +10,19 @@
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test",
     "link-service": "ln -sfv \"$(pwd)/systemd/basic-info-mcp.service\" \"$HOME/.config/systemd/user\""
   },
   "devDependencies": {
+    "@babel/eslint-parser": "^8.1.2",
+    "@babel/preset-typescript": "^8.0.7",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.4",
+    "eslint": "^10.16.0",
+    "prettier": "^3.10.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },

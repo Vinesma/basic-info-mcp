@@ -9,7 +9,7 @@
 import { resolver } from "../src/tools/ssrf.js";
 
 interface Holder {
-    lookup: () => Promise<unknown>;
+  lookup: () => Promise<unknown>;
 }
 const holder = resolver as unknown as Holder;
 const originalLookup = holder.lookup;
@@ -18,9 +18,9 @@ const originalLookup = holder.lookup;
 const PUBLIC_ADDRESSES = [{ address: "93.184.216.137", family: 4 }];
 
 export function mockDns(): void {
-    holder.lookup = async () => PUBLIC_ADDRESSES;
+  holder.lookup = async () => PUBLIC_ADDRESSES;
 }
 
 export function restoreDns(): void {
-    holder.lookup = originalLookup;
+  holder.lookup = originalLookup;
 }
