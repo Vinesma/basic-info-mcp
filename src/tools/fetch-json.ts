@@ -3,7 +3,7 @@
 // so the dispatcher from resolveAndValidate() is accepted by fetch().
 
 import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
-import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
+import undici, { type RequestInit as UndiciInit } from "undici";
 
 type FetchInit = UndiciInit;
 
@@ -11,7 +11,10 @@ export interface FetchJsonParams {
     max_bytes?: number;
 }
 
-export async function fetchJson(url: string, params: FetchJsonParams = {}): Promise<string> {
+export async function fetchJson(
+    url: string,
+    params: FetchJsonParams = {},
+): Promise<string> {
     const maxBytes = params.max_bytes ?? 100_000;
     const { dispatcher } = await resolveAndValidate(url);
 

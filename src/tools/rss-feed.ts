@@ -5,7 +5,7 @@
 import { JSDOM } from "jsdom";
 
 import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
-import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
+import undici, { type RequestInit as UndiciInit } from "undici";
 
 // A DOMParser that parses XML so void elements (e.g. RSS <link>text</link>)
 // keep their text content. JSDOM's default constructor parses as HTML.
@@ -30,7 +30,9 @@ function parseFeed(xml: string): { title: string; items: FeedItem[] } {
     const document = new DOMParser().parseFromString(xml, "application/xml");
 
     const feedRoot = document.querySelector("rss channel, feed");
-    const rootTitle = (feedRoot?.querySelector("title")?.textContent ?? "").trim();
+    const rootTitle = (
+        feedRoot?.querySelector("title")?.textContent ?? ""
+    ).trim();
     const anyTitle = document.querySelector("title")?.textContent?.trim() ?? "";
     const feedTitle = rootTitle || anyTitle;
 
@@ -45,15 +47,22 @@ function parseFeed(xml: string): { title: string; items: FeedItem[] } {
             // Atom uses href; RSS uses text content.
             link = linkEl.getAttribute("href") ?? linkEl.textContent?.trim();
         }
-        const date = (node.querySelector("pubDate, updated")?.textContent ?? "").trim();
-        const description = (node.querySelector("description")?.textContent ?? "").trim();
+        const date = (
+            node.querySelector("pubDate, updated")?.textContent ?? ""
+        ).trim();
+        const description = (
+            node.querySelector("description")?.textContent ?? ""
+        ).trim();
         items.push({ title, link, date, description });
     }
 
     return { title: feedTitle, items };
 }
 
-export async function rssFeed(url: string, params: FeedParams = {}): Promise<string> {
+export async function rssFeed(
+    url: string,
+    params: FeedParams = {},
+): Promise<string> {
     const maxItems = params.max_items ?? 20;
     const { dispatcher } = await resolveAndValidate(url);
 
@@ -79,7 +88,9 @@ export async function rssFeed(url: string, params: FeedParams = {}): Promise<str
     try {
         parsed = parseFeed(xml);
     } catch (err) {
-        throw new Error(`failed to parse feed ${url}: ${(err as Error).message}`);
+        throw new Error(
+            `failed to parse feed ${url}: ${(err as Error).message}`,
+        );
     }
 
     if (parsed.items.length === 0) {
