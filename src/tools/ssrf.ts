@@ -12,6 +12,7 @@
 
 import { lookup } from "node:dns/promises";
 import * as net from "node:net";
+import { Agent, buildConnector, type Dispatcher } from "undici";
 
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
 
@@ -38,6 +39,7 @@ export function isPublicIp(addr: string): boolean {
         if (a === 169 && b === 254) return false; // 169.254.0.0/16 link-local
         if (a === 172 && b >= 16 && b <= 31) return false; // 172.16.0.0/12 private
         if (a === 192 && b === 168) return false; // 192.168.0.0/16 private
+        if (a === 100 && b >= 64 && b <= 127) return false; // 100.64.0.0/10 CGNAT
         if (a >= 224) return false; // 224.0.0.0/4 multicast, 240.0.0.0/4 special
         return true;
     }
@@ -65,9 +67,48 @@ function expandIPv6(addr: string): string[] {
     return head.concat(Array(missing).fill("0").concat(tail));
 }
 
+// Build an undici dispatcher that dials a specific validated IP for a given
+// hostname, closing the TOCTOU window between resolveAndValidate()'s DNS
+// lookup and fetch()'s re-resolution. The URL's Host header and SNI are left
+// untouched, so TLS validation still matches the name even though the TCP
+// connection goes to a pinned IP.
+function createPinnedDispatcher(host: string, addresses: string[]): Agent {
+    const byHost = new Map<string, string[]>();
+    byHost.set(host.toLowerCase(), addresses);
+    byHost.set(host, addresses);
+
+    return new Agent({
+        connect: (
+            options: buildConnector.Options,
+            callback: buildConnector.Callback,
+        ) => {
+            const ips =
+                byHost.get((options.host ?? "").toLowerCase()) ?? addresses;
+            const ip = ips[0];
+            const family = net.isIPv4(ip) ? 4 : 6;
+            const port: number = Number(options.port) || 443;
+            const opts: net.TcpNetConnectOpts = {
+                host: ip,
+                port,
+                family,
+            };
+            const listener = (err: Error | null, sock: net.Socket) =>
+                callback(null, sock);
+            return net.connect(
+                opts as net.NetConnectOpts,
+                listener as () => void,
+            );
+        },
+    });
+}
+
 export interface ValidationResult {
     host: string;
     addresses: string[];
+    // When `host` was resolved from DNS (not a literal), this dispatcher pins
+    // the fetch to one of the validated addresses, closing the TOCTOU window
+    // between resolveAndValidate()'s lookup and fetch()'s re-resolution.
+    dispatcher?: Dispatcher;
 }
 
 // Validate `url`: allowed scheme, then a public IP literal or hostname.
@@ -88,11 +129,14 @@ export async function resolveAndValidate(url: string): Promise<ValidationResult>
     // isLiteralIp()/isPublicIp() classify the bare address.
     const host = parsed.hostname.replace(/^\[|\]$/g, "");
     let addresses: string[];
+    let dispatcher: Dispatcher | undefined;
     if (isLiteralIp(host)) {
+        // An IP literal cannot rebound; no need to pin the fetch.
         addresses = [host];
     } else {
         const results = await resolver.lookup(host, { all: true });
         addresses = results.map((r) => r.address);
+        dispatcher = createPinnedDispatcher(host, addresses);
     }
 
     for (const addr of addresses) {
@@ -103,5 +147,5 @@ export async function resolveAndValidate(url: string): Promise<ValidationResult>
         }
     }
 
-    return { host, addresses };
+    return { host, addresses, dispatcher };
 }

@@ -4,6 +4,9 @@
 // unreachable from the agent side.
 
 import { resolveAndValidate } from "./ssrf.js";
+import type { Dispatcher } from "undici";
+
+type FetchInit = RequestInit & { dispatcher?: Dispatcher };
 
 export interface DownloadFileParams {
     max_bytes?: number;
@@ -15,11 +18,12 @@ export async function downloadFile(
     params: DownloadFileParams = {},
 ): Promise<string> {
     const maxBytes = params.max_bytes ?? 5_000_000;
-    await resolveAndValidate(url);
+    const { dispatcher } = await resolveAndValidate(url);
 
+    const init: FetchInit = dispatcher ? { dispatcher } : {};
     let response: Response;
     try {
-        response = await fetch(url);
+        response = await fetch(url, init);
     } catch (err) {
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }

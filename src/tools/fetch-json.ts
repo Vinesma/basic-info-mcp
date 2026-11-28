@@ -2,6 +2,9 @@
 // Dependency-light: uses the global fetch API (Node >= 20).
 
 import { resolveAndValidate } from "./ssrf.js";
+import type { Dispatcher } from "undici";
+
+type FetchInit = RequestInit & { dispatcher?: Dispatcher };
 
 export interface FetchJsonParams {
     max_bytes?: number;
@@ -9,11 +12,12 @@ export interface FetchJsonParams {
 
 export async function fetchJson(url: string, params: FetchJsonParams = {}): Promise<string> {
     const maxBytes = params.max_bytes ?? 100_000;
-    await resolveAndValidate(url);
+    const { dispatcher } = await resolveAndValidate(url);
 
+    const init: FetchInit = dispatcher ? { dispatcher } : {};
     let response: Response;
     try {
-        response = await fetch(url);
+        response = await fetch(url, init);
     } catch (err) {
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }
