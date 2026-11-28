@@ -6,7 +6,7 @@
 import { JSDOM } from "jsdom";
 
 import { closeDispatcher, resolveAndValidate } from "./ssrf.js";
-import undici, { type Dispatcher, type RequestInit as UndiciInit } from "undici";
+import undici, { type RequestInit as UndiciInit } from "undici";
 
 type FetchInit = UndiciInit;
 
@@ -16,17 +16,62 @@ export interface FetchPageParams {
 }
 
 const BLOCK_TAGS = new Set([
-    "ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "BR", "CAPTION",
-    "DD", "DIV", "DL", "DT", "FIGCAPTION", "FIGURE", "FOOTER", "H1",
-    "H2", "H3", "H4", "H5", "H6", "HEADER", "HR", "LI", "MAIN", "NAV",
-    "OL", "P", "PRE", "SECTION", "TABLE", "TD", "TH", "THEAD", "TBODY",
-    "UL", "DT", "DD",
+    "ADDRESS",
+    "ARTICLE",
+    "ASIDE",
+    "BLOCKQUOTE",
+    "BR",
+    "CAPTION",
+    "DD",
+    "DIV",
+    "DL",
+    "DT",
+    "FIGCAPTION",
+    "FIGURE",
+    "FOOTER",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HEADER",
+    "HR",
+    "LI",
+    "MAIN",
+    "NAV",
+    "OL",
+    "P",
+    "PRE",
+    "SECTION",
+    "TABLE",
+    "TD",
+    "TH",
+    "THEAD",
+    "TBODY",
+    "UL",
+    "DT",
+    "DD",
 ]);
 
 const NOISE_TAGS = new Set([
-    "SCRIPT", "STYLE", "HEAD", "NAV", "FOOTER", "HEADER", "ASIDE", "SVG",
-    "CANVAS", "NOSCRIPT", "LINK", "META", "TEMPLATE", "IMAGE", "SOURCE",
-    "OBJECT", "EMBED",
+    "SCRIPT",
+    "STYLE",
+    "HEAD",
+    "NAV",
+    "FOOTER",
+    "HEADER",
+    "ASIDE",
+    "SVG",
+    "CANVAS",
+    "NOSCRIPT",
+    "LINK",
+    "META",
+    "TEMPLATE",
+    "IMAGE",
+    "SOURCE",
+    "OBJECT",
+    "EMBED",
 ]);
 
 // nodeType constants (Node is a browser global, not present in Node's runtime).
@@ -56,7 +101,10 @@ function normalizeWhitespace(text: string): string {
         .trim();
 }
 
-export async function fetchPage(url: string, params: FetchPageParams = {}): Promise<string> {
+export async function fetchPage(
+    url: string,
+    params: FetchPageParams = {},
+): Promise<string> {
     const maxBytes = params.max_bytes ?? 50_000;
     const accept = params.accept ?? "text/html,application/xhtml+xml,*/*";
     const { dispatcher } = await resolveAndValidate(url);
@@ -76,7 +124,9 @@ export async function fetchPage(url: string, params: FetchPageParams = {}): Prom
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().includes("html")) {
         await closeDispatcher(dispatcher);
-        throw new Error(`page is ${contentType || "unknown type"}, not HTML: ${url}`);
+        throw new Error(
+            `page is ${contentType || "unknown type"}, not HTML: ${url}`,
+        );
     }
 
     const html = await response.text();
