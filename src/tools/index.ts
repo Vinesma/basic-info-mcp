@@ -34,6 +34,9 @@ interface ToolDef<InputArgs = any> {
     description: string;
     inputSchema?: StandardSchemaWithJSON;
     handler: (input: InputArgs) => TextResult | Promise<TextResult>;
+    // Optional per-tool fields merged into the request log line. Useful for
+    // tools whose input has no `url` (e.g. web-search logs its query).
+    logFields?: (input: InputArgs) => Record<string, unknown>;
 }
 
 export const tools: ToolDef[] = [
@@ -130,6 +133,7 @@ export const tools: ToolDef[] = [
                 }),
             );
         },
+        logFields: ({ query }) => ({ query }),
     },
     {
         name: "fetch-json",
@@ -146,7 +150,7 @@ export const tools: ToolDef[] = [
                 .default(100_000)
                 .describe("Maximum response body size in bytes before erroring."),
         }),
-        handler: async ({ url, method, max_bytes }) => {
+        handler: async ({ url, max_bytes }) => {
             return textResult(await fetchJson(url, { max_bytes }));
         },
     },
@@ -236,28 +240,30 @@ export function buildServer(): McpServer {
                 const byteLength = new TextEncoder()
                     .encode(result.content[0]?.text ?? "")
                     .length;
-                console.log(
-                    JSON.stringify({
-                        ts: new Date().toISOString(),
-                        tool: tool.name,
-                        url,
-                        status: "ok",
-                        bytes: byteLength,
-                        duration_ms: Date.now() - start,
-                    }),
-                );
+                // JSON.stringify drops undefined values, so tools without a
+                // url (or extra fields) simply omit them from the line.
+                const logLine = {
+                    ts: new Date().toISOString(),
+                    tool: tool.name,
+                    url,
+                    ...(tool.logFields ? tool.logFields(input) : {}),
+                    status: "ok",
+                    bytes: byteLength,
+                    duration_ms: Date.now() - start,
+                };
+                console.log(JSON.stringify(logLine));
                 return result;
             } catch (err) {
-                console.error(
-                    JSON.stringify({
-                        ts: new Date().toISOString(),
-                        tool: tool.name,
-                        url,
-                        status: "error",
-                        error: (err as Error).message,
-                        duration_ms: Date.now() - start,
-                    }),
-                );
+                const errorLogLine = {
+                    ts: new Date().toISOString(),
+                    tool: tool.name,
+                    url,
+                    ...(tool.logFields ? tool.logFields(input) : {}),
+                    status: "error",
+                    error: (err as Error).message,
+                    duration_ms: Date.now() - start,
+                };
+                console.error(JSON.stringify(errorLogLine));
                 throw err;
             }
         };

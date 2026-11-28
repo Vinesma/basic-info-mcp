@@ -6,6 +6,9 @@
 import { JSDOM } from "jsdom";
 
 import { resolveAndValidate } from "./ssrf.js";
+import type { Dispatcher } from "undici";
+
+type FetchInit = RequestInit & { dispatcher?: Dispatcher };
 
 export interface FetchPageParams {
     max_bytes?: number;
@@ -56,13 +59,15 @@ function normalizeWhitespace(text: string): string {
 export async function fetchPage(url: string, params: FetchPageParams = {}): Promise<string> {
     const maxBytes = params.max_bytes ?? 50_000;
     const accept = params.accept ?? "text/html,application/xhtml+xml,*/*";
-    await resolveAndValidate(url);
+    const { dispatcher } = await resolveAndValidate(url);
 
+    const init: FetchInit = {
+        headers: { Accept: accept },
+        ...(dispatcher ? { dispatcher } : {}),
+    };
     let response: Response;
     try {
-        response = await fetch(url, {
-            headers: { Accept: accept },
-        });
+        response = await fetch(url, init);
     } catch (err) {
         throw new Error(`fetch failed: ${url} (${(err as Error).message})`);
     }
